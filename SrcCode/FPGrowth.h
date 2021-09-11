@@ -18,10 +18,15 @@ public:
 		is_leaf = true;
 	}
 
-	~FPNode()
-	{
-		//std::cout << "\n destroyed node: " << item << std::endl;
-	}
+	~ FPNode() = default;
+
+	FPNode(FPNode &&) = default;
+
+	FPNode(const FPNode &) = default;
+
+	FPNode & operator=(FPNode &&) = default;
+
+	FPNode & operator=(const FPNode &) = default;
 };
 
 
@@ -34,11 +39,15 @@ public:
 
 	FPTree(std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> & header_table,const std::vector<std::vector<int>> & database);
 	
+	~FPTree() = default;
 
-	~FPTree()
-	{
+	FPTree(FPTree &&) = delete;
 
-	}
+	FPTree(const FPTree &) = delete;
+
+	FPTree & operator=(FPTree &&) = delete;
+
+	FPTree & operator=(const FPTree &) = delete;
 
 };
 
@@ -50,7 +59,7 @@ void ReadTransactionalDatabaseFile(const std::string & database_file, std::vecto
 
 void PrintFrequentItemSets(const std::vector< std::pair<std::vector<int>,int> > &  frequent_item_sets,  const std::string & file_name);
 
-void FPGrowthMineFrequentItemSets(const std::vector<std::unordered_set<int>> & given_db , const std::vector<int> & conditional_items, 
+void FPGrowthMineFrequentItemSets(std::vector<std::unordered_set<int>> & given_db , const std::vector<int> & conditional_items, 
 	std::vector< std::pair<std::vector<int>,int> > & frequent_item_sets);
 
 void SortFrequentItemSetsLexicographicOrder(std::vector< std::pair<std::vector<int>,int> > &  frequent_item_sets);

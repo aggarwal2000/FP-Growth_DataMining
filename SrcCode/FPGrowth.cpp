@@ -22,12 +22,13 @@ bool compare_header_table_rows( const header_table_row & T_a , const header_tabl
 }
 
 
-std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>  CreateHeaderTableAndReducedDataBase(const std::vector<std::unordered_set<int>> & database)
+std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>  CreateHeaderTableAndReducedDataBase(std::vector<std::unordered_set<int>> & database)
 {
 	std::unordered_map<int , int> frequency_table;
 
 	const int num_transactions =  database.size();
 
+	//first create a frequency table - using hash map
 	for(int t = 0; t < num_transactions; t++)
 	{
 		for(auto itr = database[t].begin(); itr != database[t].end(); itr++)
@@ -48,10 +49,9 @@ std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>  Creat
 		}
 	}
 
-
+	//create header table using frequency table
     std::vector<header_table_row> header_table;
 
-    //Now...
     for (auto itr = frequency_table.begin(); itr != frequency_table.end(); itr++)
     {	
     	if(itr->second >= min_support_count)
@@ -64,13 +64,15 @@ std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>  Creat
    
     std::sort(header_table.begin(), header_table.end(), compare_header_table_rows);
 
+    frequency_table.clear(); //clear frequnecy table(because of main memory limits)
+
     // for(int i = 0; i < header_table.size();i++)
     // {
     // 	std::cout << std::get<0>(header_table[i]) << "    " << std::get<1>(header_table[i]) << std::endl;
     // }
 
 
-
+    //create reduced and ordered database
     std::vector<std::vector<int>> reduced_database;
     for(int trans = 0; trans < database.size(); trans++)
     {	
@@ -89,13 +91,15 @@ std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>  Creat
     	reduced_database.push_back(std::move(row_reduced_db));
     }
 
+    database.clear(); //clear given database(because of main memory limits)
+
     return std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>(std::move(header_table), std::move(reduced_database));
 
 }
 
 
 
-int Get_Suitable_row(const std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> & header_table , const int item)
+int GetMatchingRow(const std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> & header_table , const int item)
 {
 	for(int row = 0; row < header_table.size(); row++)
 	{
@@ -115,8 +119,6 @@ void PrintFPTree(const std::vector<header_table_row> & header_table, const FPTre
 	{
 		std::cout <<  std::get<0>(header_table[i]) << "   " << std::get<1>(header_table[i])  << std::endl;
 
-		//std::cout <<  std::get<2>(header_table[i]) << std::endl;
-
 		std::shared_ptr<const FPNode> address = std::get<2>(header_table[i]);
 
 		while(address != nullptr)
@@ -124,13 +126,13 @@ void PrintFPTree(const std::vector<header_table_row> & header_table, const FPTre
 
 			if(address->is_leaf == true)
 			{	
-				//std::cout << " Leaf to Root: " << std::endl;
+				std::cout << " Leaf to Root: " << std::endl;
 
 				std::shared_ptr<const FPNode> curr_address = address;
 
 				while(curr_address != nullptr)
 				{	
-					//std::cout << "Item: " << curr_address->item << "  number: " << curr_address->num << std::endl;
+					std::cout << "Item: " << curr_address->item << "  number: " << curr_address->num << std::endl;
 
 					curr_address = (curr_address->parent_address).lock();
 				}
@@ -140,7 +142,6 @@ void PrintFPTree(const std::vector<header_table_row> & header_table, const FPTre
 
 		}
 	}
-
 
 }
 
@@ -156,8 +157,6 @@ std::pair<bool, int> Check_Single_Path(const std::vector<header_table_row> & hea
 	for(int i = 0; i < header_table.size(); i++)
 	{
 		//std::cout <<  std::get<0>(header_table[i]) << "   " << std::get<1>(header_table[i])  << std::endl;
-
-		//std::cout <<  std::get<2>(header_table[i]) << std::endl;
 
 		std::shared_ptr<FPNode> address =  std::get<2>(header_table[i]);
 
@@ -247,8 +246,6 @@ void EnumerateSubsets(const std::vector<header_table_row> & header_table, const 
 		address = (address->parent_address).lock();
 	}
 
-	//items_in_a_path.pop_back(); //destroys obj?
-
 
 	//find all subsets and take support: min of the elems in subsets ; also take union with conditional elems
 	//and push back these to frequent item sets.
@@ -263,8 +260,7 @@ void EnumerateSubsets(const std::vector<header_table_row> & header_table, const 
 
 	for(int i = 0; i < subsets.size(); i++)
 	{	
-		//std::cout << "hi" << std::endl;
-
+		
 		for(int j =0; j < conditional_items.size(); j++)
 		{
 			(subsets[i].first).push_back(conditional_items[j]);
@@ -309,7 +305,7 @@ void CreateConditionalPatternBase(const int row, const std::vector<header_table_
 
 
 
-bool compare_lexicographic(int a, int b)
+bool compare_lexicographic(const int a, const int b)
 {
 	std::string A = std::to_string(a);
 
@@ -384,7 +380,7 @@ FPTree::FPTree(std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> & he
 			{	
 				const int item = database[trans][i];
 
-				const int row = Get_Suitable_row(header_table, item);
+				const int row = GetMatchingRow(header_table, item);
 
 				std::shared_ptr<FPNode> address =  std::get<2>(header_table[row]);
 
@@ -459,19 +455,18 @@ void PrintFrequentItemSets(const std::vector< std::pair<std::vector<int>,int> > 
 
 
 
-void FPGrowthMineFrequentItemSets(const std::vector<std::unordered_set<int>> & given_db , const std::vector<int> & conditional_items, 
+void FPGrowthMineFrequentItemSets(std::vector<std::unordered_set<int>> & given_db , const std::vector<int> & conditional_items, 
 	std::vector< std::pair<std::vector<int>,int> > & frequent_item_sets)
 {
 
 	std::pair< std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >>, std::vector<std::vector<int>> >  header_table_and_reduced_database = CreateHeaderTableAndReducedDataBase(given_db); //use hashmap, where key is item and value is tuple of count and address of FP tree nodes.
+	//Note: Remember, this clears the given database
 
-	std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> header_table =  header_table_and_reduced_database.first;
+	std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> header_table =  std::move(header_table_and_reduced_database.first);
 
-	std::vector<std::vector<int>> reduced_database = header_table_and_reduced_database.second;
+	std::vector<std::vector<int>> reduced_database = std::move(header_table_and_reduced_database.second);
 
-
-	
- 	// std::cout << "\n The database is: " << std::endl;
+  // std::cout << "\n The database is: " << std::endl;
   //   PrintDatabase(reduced_database);
 
   //   std::cout << "\n The Header Table is: " << std::endl;
@@ -513,7 +508,6 @@ void FPGrowthMineFrequentItemSets(const std::vector<std::unordered_set<int>> & g
 			const int count = std::get<1>(header_table[row]);
 
 			// conditional_items_for_row with support as count: Add to frequent itemset.
-			//DO THIS-->DONE
 			std::vector<int> v;
 			for(auto itr = conditional_items_for_row.begin(); itr < conditional_items_for_row.end(); itr++)
 			{
@@ -533,7 +527,7 @@ void FPGrowthMineFrequentItemSets(const std::vector<std::unordered_set<int>> & g
 
 			//std::cout << "\n The row is: " << row << std::endl;
 
-			// std::cout << "\n Conditional items from before: " << std::endl;
+			// std::cout << "\n Conditional items already present: " << std::endl;
 			// for(int i =0; i < conditional_items.size(); i++)
 			// {
 			// 	std::cout << conditional_items[i] << std::endl;

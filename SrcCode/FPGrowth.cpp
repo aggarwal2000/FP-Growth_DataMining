@@ -1,4 +1,3 @@
-#include<iostream>
 #include<string>
 #include<cstring>
 #include<vector>
@@ -11,61 +10,17 @@
 #include<tuple>
 #include<utility>
 #include <bits/stdc++.h>
+#include<memory>
+#include"FPGrowth.h"
 
-int min_support_count;
+namespace{
 
-void PrintDatabase(const std::vector<std::vector<int>> & given_db)
-{
-	const int num_transactions =  given_db.size();
-
-	for(int t = 0; t < num_transactions; t++)
-	{
-		std::cout << "\n Transaction: " << t << std::endl;
-
-		for(int i = 0; i < given_db[t].size(); i++)
-		{
-			std::cout << given_db[t][i] << "   ";
-		}
-	}
-}
-
-
-void ReadTransactionalDatabaseFile(const std::string & database_file, std::vector<std::unordered_set<int>> & given_db)
-{
-	std::fstream file;
-	file.open(database_file);
-	std::string line;
-
-	while(std::getline(file, line))
-	{	
-		std::unordered_set<int> items_in_a_transaction;
-		
-		char* line_ptr =   const_cast<char*>(line.c_str());
-		//split line (based on white spaces)
-		char* token =  strtok(line_ptr, " ");
-
-		while(token != nullptr)
-		{	
-			int item = atoi(token);
-			items_in_a_transaction.insert(item);
-
-			token = strtok(nullptr, " ");
-		}
-
-		given_db.push_back(items_in_a_transaction);
-			
-	}
-
-	file.close();
-}
-
-class FPNode;
-using header_table_row = std::tuple<int, int, FPNode*>;
 
 bool compare_header_table_rows( const header_table_row & T_a , const header_table_row & T_b)
 {
 	return std::get<1>(T_a) >= std::get<1>(T_b);
 }
+
 
 std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>  CreateHeaderTableAndReducedDataBase(const std::vector<std::unordered_set<int>> & database)
 {
@@ -139,30 +94,8 @@ std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>  Creat
 }
 
 
-class FPNode{
 
-	public:
-
-	int item;
-	int num;
-	FPNode* parent_address;
-	FPNode* side_address;
-	bool is_leaf;
-
-	FPNode(int Item, int Num, FPNode* const Parent_address, FPNode* const Side_address)
-	{
-		item = Item;
-		num = Num;
-		parent_address = Parent_address;
-		side_address = Side_address;
-		is_leaf = true;
-	}
-};
-
-
-
-
-int Get_Suitable_row(const std::vector<std::tuple<int ,int , FPNode* >> & header_table , const int item)
+int Get_Suitable_row(const std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> & header_table , const int item)
 {
 	for(int row = 0; row < header_table.size(); row++)
 	{
@@ -175,72 +108,6 @@ int Get_Suitable_row(const std::vector<std::tuple<int ,int , FPNode* >> & header
 
 
 
-class FPTree{
-
-public:
-
- 	FPNode* root_node;
-
-	FPTree(std::vector<std::tuple<int ,int , FPNode* >> & header_table,const std::vector<std::vector<int>> & database)
-	{
-		root_node = new FPNode(-1 , -1 , nullptr, nullptr);
-
-		for(int trans = 0; trans < database.size(); trans++)
-		{		
-			FPNode* desired_parent_address = root_node;
-
-			for(int i = 0; i < database[trans].size(); i++)
-			{	
-				const int item = database[trans][i];
-
-				const int row = Get_Suitable_row(header_table, item);
-
-				FPNode* address =  std::get<2>(header_table[row]);
-
-				if(address == nullptr)
-				{	
-					desired_parent_address->is_leaf = false;
-					FPNode* new_node_address =  new FPNode(item, 1 , desired_parent_address, nullptr);
-					std::get<2>(header_table[row]) = new_node_address;
-					desired_parent_address = new_node_address;
-				}
-				else
-				{
-					FPNode* prev_address;
-
-					while(address != nullptr && address->parent_address != desired_parent_address)
-					{	
-						prev_address = address;
-						address = address->side_address;
-					}
-
-					if(address != nullptr)
-					{
-						address->num = address->num + 1;
-						desired_parent_address = address;
-					}
-					else
-					{	
-						desired_parent_address->is_leaf = false;
-						FPNode* new_node_address =  new FPNode(item, 1 , desired_parent_address, nullptr);
-						
-						prev_address->side_address = new_node_address;
-						desired_parent_address = new_node_address;
-					}
-
-				}
-			}
-		}
-
-	}
-
-	~FPTree()
-	{
-
-	}
-
-};
-
 
 void PrintFPTree(const std::vector<header_table_row> & header_table, const FPTree & fp_tree)
 {
@@ -250,7 +117,7 @@ void PrintFPTree(const std::vector<header_table_row> & header_table, const FPTre
 
 		//std::cout <<  std::get<2>(header_table[i]) << std::endl;
 
-		FPNode* address =  std::get<2>(header_table[i]);
+		std::shared_ptr<const FPNode> address = std::get<2>(header_table[i]);
 
 		while(address != nullptr)
 		{	
@@ -259,13 +126,13 @@ void PrintFPTree(const std::vector<header_table_row> & header_table, const FPTre
 			{	
 				//std::cout << " Leaf to Root: " << std::endl;
 
-				FPNode* curr_address = address;
+				std::shared_ptr<const FPNode> curr_address = address;
 
 				while(curr_address != nullptr)
 				{	
 					//std::cout << "Item: " << curr_address->item << "  number: " << curr_address->num << std::endl;
 
-					curr_address = curr_address->parent_address;
+					curr_address = (curr_address->parent_address).lock();
 				}
 
 			}
@@ -292,7 +159,7 @@ std::pair<bool, int> Check_Single_Path(const std::vector<header_table_row> & hea
 
 		//std::cout <<  std::get<2>(header_table[i]) << std::endl;
 
-		FPNode* address =  std::get<2>(header_table[i]);
+		std::shared_ptr<FPNode> address =  std::get<2>(header_table[i]);
 
 		while(address != nullptr)
 		{	
@@ -369,15 +236,15 @@ void FindSubsets(int curr_index, std::vector<  std::pair<std::vector<int>,int> >
 void EnumerateSubsets(const std::vector<header_table_row> & header_table, const FPTree & fp_tree,
  const int row, const std::vector<int> & conditional_items, std::vector< std::pair<std::vector<int>,int> > & frequent_item_sets)
 {
-	FPNode* address =  std::get<2>(header_table[row]);
+	std::shared_ptr<const FPNode> address =  std::get<2>(header_table[row]);
 
 	std::vector<std::pair<int, int>> items_in_a_path;
 
-	while(address != nullptr && address->parent_address != nullptr)
+	while(address != nullptr && (address->parent_address).lock() != nullptr)
 	{
 		items_in_a_path.push_back(std::pair<int,int>(address->item , address->num));
 		//std::cout << "item in path: " << address->item << "  and count num: " << address->num << std::endl;
-		address = address->parent_address;
+		address = (address->parent_address).lock();
 	}
 
 	//items_in_a_path.pop_back(); //destroys obj?
@@ -412,23 +279,23 @@ void EnumerateSubsets(const std::vector<header_table_row> & header_table, const 
 void CreateConditionalPatternBase(const int row, const std::vector<header_table_row> &  header_table,
  const FPTree & FPTree, std::vector<std::unordered_set<int>> & conditional_pattern_base)
 {
-	FPNode* address = std::get<2>(header_table[row]);
+	std::shared_ptr<const FPNode> address = std::get<2>(header_table[row]);
 
 	while(address != nullptr)
 	{
 
-		FPNode* curr_address = address;
+		std::shared_ptr<const FPNode> curr_address = address;
 
 		const int num_times =  curr_address->num;
 
 		std::unordered_set<int> item_set;
 
-		curr_address = curr_address->parent_address;
+		curr_address = (curr_address->parent_address).lock();
 
-		while(curr_address != nullptr && curr_address->parent_address != nullptr)
+		while(curr_address != nullptr && (curr_address->parent_address).lock() != nullptr)
 		{
 			item_set.insert(curr_address->item);
-			curr_address = curr_address->parent_address;
+			curr_address = (curr_address->parent_address).lock();
 		}
 
 		for(int i = 0; i < num_times; i++)
@@ -439,6 +306,124 @@ void CreateConditionalPatternBase(const int row, const std::vector<header_table_
 		address = address->side_address;
 	}
 }
+
+
+
+bool compare_lexicographic(int a, int b)
+{
+	std::string A = std::to_string(a);
+
+	std::string B = std::to_string(b);
+
+	return A < B;
+}
+
+
+} //unnamed namespace
+
+
+
+
+void PrintDatabase(const std::vector<std::vector<int>> & given_db)
+{
+	const int num_transactions =  given_db.size();
+
+	for(int t = 0; t < num_transactions; t++)
+	{
+		std::cout << "\n Transaction: " << t << std::endl;
+
+		for(int i = 0; i < given_db[t].size(); i++)
+		{
+			std::cout << given_db[t][i] << "   ";
+		}
+	}
+}
+
+
+
+void ReadTransactionalDatabaseFile(const std::string & database_file, std::vector<std::unordered_set<int>> & given_db)
+{
+	std::fstream file;
+	file.open(database_file);
+	std::string line;
+
+	while(std::getline(file, line))
+	{	
+		std::unordered_set<int> items_in_a_transaction;
+		
+		char* line_ptr =   const_cast<char*>(line.c_str());
+		//split line (based on white spaces)
+		char* token =  strtok(line_ptr, " ");
+
+		while(token != nullptr)
+		{	
+			int item = atoi(token);
+			items_in_a_transaction.insert(item);
+
+			token = strtok(nullptr, " ");
+		}
+
+		given_db.push_back(items_in_a_transaction);
+			
+	}
+
+	file.close();
+}
+
+
+
+FPTree::FPTree(std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> & header_table,const std::vector<std::vector<int>> & database)
+	{
+		root_node = std::shared_ptr<FPNode>(new FPNode(-1 , -1 , nullptr, nullptr));
+
+		for(int trans = 0; trans < database.size(); trans++)
+		{		
+			std::shared_ptr<FPNode> desired_parent_address = root_node;
+
+			for(int i = 0; i < database[trans].size(); i++)
+			{	
+				const int item = database[trans][i];
+
+				const int row = Get_Suitable_row(header_table, item);
+
+				std::shared_ptr<FPNode> address =  std::get<2>(header_table[row]);
+
+				if(address == nullptr)
+				{	
+					desired_parent_address->is_leaf = false;
+					std::shared_ptr<FPNode> new_node_address{new FPNode(item, 1 , desired_parent_address, nullptr)};
+					std::get<2>(header_table[row]) = new_node_address;
+					desired_parent_address = new_node_address;
+				}
+				else
+				{
+					
+					std::shared_ptr<FPNode> prev_address;
+
+					while(address != nullptr && (address->parent_address).lock() != desired_parent_address)
+					{	
+						prev_address = address;
+						address = address->side_address;
+					}
+
+					if(address != nullptr)
+					{
+						address->num = address->num + 1;
+						desired_parent_address = address;
+					}
+					else
+					{	
+						desired_parent_address->is_leaf = false;
+						std::shared_ptr<FPNode> new_node_address{new FPNode(item, 1 , desired_parent_address, nullptr)};
+						prev_address->side_address = new_node_address;
+						desired_parent_address = new_node_address;
+					}
+
+				}
+			}
+		}
+
+	}
 
 
 
@@ -478,9 +463,9 @@ void FPGrowthMineFrequentItemSets(const std::vector<std::unordered_set<int>> & g
 	std::vector< std::pair<std::vector<int>,int> > & frequent_item_sets)
 {
 
-	std::pair< std::vector<std::tuple<int ,int , FPNode* >>, std::vector<std::vector<int>> >  header_table_and_reduced_database = CreateHeaderTableAndReducedDataBase(given_db); //use hashmap, where key is item and value is tuple of count and address of FP tree nodes.
+	std::pair< std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >>, std::vector<std::vector<int>> >  header_table_and_reduced_database = CreateHeaderTableAndReducedDataBase(given_db); //use hashmap, where key is item and value is tuple of count and address of FP tree nodes.
 
-	std::vector<std::tuple<int ,int , FPNode* >> header_table =  header_table_and_reduced_database.first;
+	std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> header_table =  header_table_and_reduced_database.first;
 
 	std::vector<std::vector<int>> reduced_database = header_table_and_reduced_database.second;
 
@@ -567,14 +552,6 @@ void FPGrowthMineFrequentItemSets(const std::vector<std::unordered_set<int>> & g
 
 
 
-bool compare_lexicographic(int a, int b)
-{
-	std::string A = std::to_string(a);
-
-	std::string B = std::to_string(b);
-
-	return A < B;
-}
 
 void SortFrequentItemSetsLexicographicOrder(std::vector< std::pair<std::vector<int>,int> > &  frequent_item_sets)
 {
@@ -589,40 +566,4 @@ void SortFrequentItemSetsLexicographicOrder(std::vector< std::pair<std::vector<i
 }
 
 
-int main(int argc, char *argv[])
-{	
-	
-	if(argc != 3)
-	{
-		std::cout << "\n The format is: a.exe [database file name] [min support percentage] " << std::endl;
-		return 0;
-	}
-	const std::string database_file =  argv[1];
-	const float supp = atof(argv[2]);
 
-	std::vector<std::unordered_set<int>> given_db; // first I am going for vector of vectors ;can also use a vector of unorderd sets here
-
-	ReadTransactionalDatabaseFile(database_file, given_db);
-	//PrintDatabase(given_db);
-
-	min_support_count =  ceil((supp * given_db.size())/100);
-
-	std::cout << "\nMin support count is: " << min_support_count << std::endl;
-
-	std::vector< std::pair<std::vector<int>,int> > frequent_item_sets;
-
-	std::vector<int> conditional_items;
-
-	FPGrowthMineFrequentItemSets(given_db, conditional_items, frequent_item_sets);
-
-
-	std::cout << "\n Num of frequent item sets: " << frequent_item_sets.size() << std::endl;
-
-	SortFrequentItemSetsLexicographicOrder(frequent_item_sets);
-
-	PrintFrequentItemSets(frequent_item_sets, "output.txt");
-
-	
-
-
-}

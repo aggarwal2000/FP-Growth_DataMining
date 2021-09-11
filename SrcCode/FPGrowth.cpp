@@ -100,14 +100,24 @@ std::pair< std::vector<header_table_row> , std::vector<std::vector<int>>>  Creat
 
 
 int GetMatchingRow(const std::vector<std::tuple<int ,int , std::shared_ptr<FPNode> >> & header_table , const int item)
-{
+{	
+	bool found = false;
+
 	for(int row = 0; row < header_table.size(); row++)
 	{
 		if(item == std::get<0>(header_table[row]))
-		{
+		{	
+			found = true;
 			return row;
 		}
 	}
+
+	if(found == false)
+	{
+		std::cout << "No matching row found in header table , means something is wrong with the implementation" << std::endl;
+	}
+
+	exit(0);
 }
 
 

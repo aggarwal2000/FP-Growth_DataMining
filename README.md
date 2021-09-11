@@ -3,7 +3,7 @@
 ### Database filename and minimum support percentage are passed as command line arguments.
 
 ```
-g++ main.cpp FPGrowth.cpp
+g++ -std=c++11 main.cpp FPGrowth.cpp
 
 a.exe database_file_name min_support_percentage
 
